@@ -1,0 +1,13 @@
+apiVersion: v2
+name: pdns-auth
+description: PowerDNS Authoritative Server Helm Chart
+type: application
+version: 0.1.0
+appVersion: "4.9.0"
+maintainers:
+  - name: PowerDNS
+keywords:
+  - dns
+  - powerdns
+  - authoritative
+  - pdns 
