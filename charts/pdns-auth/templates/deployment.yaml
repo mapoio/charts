@@ -1,0 +1,166 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pdns-auth.fullname" . }}
+  labels:
+    {{- include "pdns-auth.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pdns-auth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "pdns-auth.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pdns-auth.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-config
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              
+              # Install subvars if not already installed
+              if ! command -v subvars >/dev/null 2>&1; then
+                apk add --no-cache curl
+                curl -sSL https://github.com/drone/envsubst/releases/download/v1.2.0/envsubst_1.2.0_linux_amd64.tar.gz | tar -xz -C /tmp
+                mv /tmp/envsubst /usr/local/bin/subvars
+                chmod +x /usr/local/bin/subvars
+              fi
+              
+              # Generate pdns.conf from template
+              subvars --prefix 'PDNS_' < /configmap/pdns.conf.tpl > /etc/pdns/pdns.conf
+              
+              # Set permissions
+              chmod 644 /etc/pdns/pdns.conf
+          volumeMounts:
+            - name: config
+              mountPath: /configmap
+            - name: pdns-config
+              mountPath: /etc/pdns
+          env:
+            {{- range $key, $value := .Values.config }}
+            - name: PDNS_{{ $key | upper | replace "-" "_" }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if eq .Values.database.type "mysql" }}
+            - name: PDNS_gmysql_host
+              value: {{ .Values.database.mysql.host | quote }}
+            - name: PDNS_gmysql_port
+              value: {{ .Values.database.mysql.port | quote }}
+            - name: PDNS_gmysql_user
+              value: {{ .Values.database.mysql.user | quote }}
+            - name: PDNS_gmysql_password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gmysql_password
+            - name: PDNS_gmysql_dbname
+              value: {{ .Values.database.mysql.database | quote }}
+            {{- else if eq .Values.database.type "pgsql" }}
+            - name: PDNS_gpgsql_host
+              value: {{ .Values.database.pgsql.host | quote }}
+            - name: PDNS_gpgsql_port
+              value: {{ .Values.database.pgsql.port | quote }}
+            - name: PDNS_gpgsql_user
+              value: {{ .Values.database.pgsql.user | quote }}
+            - name: PDNS_gpgsql_password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gpgsql_password
+            - name: PDNS_gpgsql_dbname
+              value: {{ .Values.database.pgsql.database | quote }}
+            {{- else if eq .Values.database.type "sqlite3" }}
+            - name: PDNS_gsqlite3_database
+              value: {{ .Values.database.sqlite3.database | quote }}
+            {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: dns
+              containerPort: 53
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 53
+              protocol: TCP
+            - name: api
+              containerPort: 8081
+              protocol: TCP
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /api
+              port: api
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /api
+              port: api
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: pdns-config
+              mountPath: /etc/pdns
+            {{- if eq .Values.database.type "sqlite3" }}
+            - name: data
+              mountPath: {{ dir .Values.database.sqlite3.database }}
+            {{- end }}
+          env:
+            {{- if .Values.config.api-key }}
+            - name: PDNS_api_key
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_api_key
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pdns-auth.fullname" . }}-config
+        - name: pdns-config
+          emptyDir: {}
+        {{- if eq .Values.database.type "sqlite3" }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "pdns-auth.fullname" . }}
+        {{- end }} 

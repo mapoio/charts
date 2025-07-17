@@ -1,0 +1,203 @@
+{{- if .Values.database.init.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pdns-auth.fullname" . }}-init
+  labels:
+    {{- include "pdns-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "pdns-auth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: init
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pdns-auth.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: init
+          # 使用包含所有数据库客户端工具的镜像
+          image: "{{ .Values.initJob.image.repository }}:{{ .Values.initJob.image.tag }}"
+          imagePullPolicy: {{ .Values.initJob.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              
+              # Copy schema files
+              cp /configmap/mysql-schema.sql /tmp/mysql-schema.sql
+              cp /configmap/pgsql-schema.sql /tmp/pgsql-schema.sql
+              cp /configmap/sqlite3-schema.sql /tmp/sqlite3-schema.sql
+              
+              # Initialize database based on type
+              {{- if eq .Values.database.type "mysql" }}
+              echo "Initializing MySQL database..."
+              
+              # Set environment variables
+              MYSQL_HOST="{{ .Values.database.mysql.host }}"
+              MYSQL_PORT="{{ .Values.database.mysql.port }}"
+              MYSQL_USER="{{ .Values.database.mysql.user }}"
+              MYSQL_PASSWORD="{{ .Values.database.mysql.password }}"
+              MYSQL_DATABASE="{{ .Values.database.mysql.database }}"
+              
+              # Wait for MySQL to be ready
+              echo "Waiting for MySQL to be ready..."
+              until mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "SELECT 1"; do
+                echo "MySQL is unavailable - sleeping"
+                sleep 3
+              done
+              
+              # Create database if needed
+              if [ "{{ .Values.database.init.skipCreate }}" != "true" ]; then
+                echo "Creating database if it doesn't exist..."
+                mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS $MYSQL_DATABASE"
+              fi
+              
+              # Initialize schema if needed
+              if [ "{{ .Values.database.init.skipInit }}" != "true" ]; then
+                echo "Checking if tables exist..."
+                MYSQL_CHECK_IF_HAS_TABLE="SELECT COUNT(DISTINCT table_name) FROM information_schema.columns WHERE table_schema = '$MYSQL_DATABASE';"
+                MYSQL_NUM_TABLE=$(mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" --batch --skip-column-names -e "$MYSQL_CHECK_IF_HAS_TABLE")
+                if [ "$MYSQL_NUM_TABLE" -eq 0 ]; then
+                  echo "Database exists and has no tables yet, initializing schema..."
+                  mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < /tmp/mysql-schema.sql
+                else
+                  echo "Database already has tables, skipping initialization..."
+                fi
+              fi
+              {{- else if eq .Values.database.type "pgsql" }}
+              echo "Initializing PostgreSQL database..."
+              
+              # Set environment variables
+              PGHOST="{{ .Values.database.pgsql.host }}"
+              PGPORT="{{ .Values.database.pgsql.port }}"
+              PGUSER="{{ .Values.database.pgsql.user }}"
+              PGPASSWORD="{{ .Values.database.pgsql.password }}"
+              PGDATABASE="{{ .Values.database.pgsql.database }}"
+              export PGHOST PGPORT PGUSER PGPASSWORD
+              
+              # Wait for PostgreSQL to be ready
+              echo "Waiting for PostgreSQL to be ready..."
+              until psql -c '\q'; do
+                echo "PostgreSQL is unavailable - sleeping"
+                sleep 3
+              done
+              
+              # Create database if needed
+              if [ "{{ .Values.database.init.skipCreate }}" != "true" ]; then
+                echo "Creating database if it doesn't exist..."
+                psql -c "SELECT 'CREATE DATABASE $PGDATABASE' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$PGDATABASE')\gexec"
+              fi
+              
+              # Initialize schema if needed
+              if [ "{{ .Values.database.init.skipInit }}" != "true" ]; then
+                echo "Checking if tables exist..."
+                PGSQL_CHECK_IF_HAS_TABLE="SELECT COUNT(DISTINCT table_name) FROM information_schema.columns WHERE table_catalog = '$PGDATABASE' AND table_schema = 'public';"
+                PGSQL_NUM_TABLE=$(psql -d "$PGDATABASE" -At -c "$PGSQL_CHECK_IF_HAS_TABLE")
+                if [ "$PGSQL_NUM_TABLE" -eq 0 ]; then
+                  echo "Database exists and has no tables yet, initializing schema..."
+                  psql -d "$PGDATABASE" < /tmp/pgsql-schema.sql
+                else
+                  echo "Database already has tables, skipping initialization..."
+                fi
+              fi
+              {{- else if eq .Values.database.type "sqlite3" }}
+              echo "Initializing SQLite3 database..."
+              
+              # Set environment variables
+              SQLITE_DB="{{ .Values.database.sqlite3.database }}"
+              
+              # Create directory if it doesn't exist
+              mkdir -p $(dirname "$SQLITE_DB")
+              
+              # Initialize schema if needed
+              if [ "{{ .Values.database.init.skipInit }}" != "true" ]; then
+                if [ ! -f "$SQLITE_DB" ] || [ ! -s "$SQLITE_DB" ]; then
+                  echo "SQLite3 database doesn't exist or is empty, initializing schema..."
+                  sqlite3 "$SQLITE_DB" < /tmp/sqlite3-schema.sql
+                else
+                  echo "SQLite3 database already exists, checking if it has tables..."
+                  SQLITE_TABLE_COUNT=$(sqlite3 "$SQLITE_DB" "SELECT count(name) FROM sqlite_master WHERE type='table';")
+                  if [ "$SQLITE_TABLE_COUNT" -eq 0 ]; then
+                    echo "SQLite3 database has no tables, initializing schema..."
+                    sqlite3 "$SQLITE_DB" < /tmp/sqlite3-schema.sql
+                  else
+                    echo "SQLite3 database already has tables, skipping initialization..."
+                  fi
+                fi
+              fi
+              {{- end }}
+              
+              echo "Database initialization completed successfully."
+          volumeMounts:
+            - name: config
+              mountPath: /configmap
+            {{- if eq .Values.database.type "sqlite3" }}
+            - name: data
+              mountPath: {{ dir .Values.database.sqlite3.database }}
+            {{- end }}
+          env:
+            {{- if eq .Values.database.type "mysql" }}
+            - name: PDNS_gmysql_host
+              value: {{ .Values.database.mysql.host | quote }}
+            - name: PDNS_gmysql_port
+              value: {{ .Values.database.mysql.port | quote }}
+            - name: PDNS_gmysql_user
+              value: {{ .Values.database.mysql.user | quote }}
+            - name: PDNS_gmysql_password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gmysql_password
+            - name: PDNS_gmysql_dbname
+              value: {{ .Values.database.mysql.database | quote }}
+            {{- else if eq .Values.database.type "pgsql" }}
+            - name: PDNS_gpgsql_host
+              value: {{ .Values.database.pgsql.host | quote }}
+            - name: PDNS_gpgsql_port
+              value: {{ .Values.database.pgsql.port | quote }}
+            - name: PDNS_gpgsql_user
+              value: {{ .Values.database.pgsql.user | quote }}
+            - name: PDNS_gpgsql_password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gpgsql_password
+            - name: PDNS_gpgsql_dbname
+              value: {{ .Values.database.pgsql.database | quote }}
+            {{- else if eq .Values.database.type "sqlite3" }}
+            - name: PDNS_gsqlite3_database
+              value: {{ .Values.database.sqlite3.database | quote }}
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pdns-auth.fullname" . }}-config
+        {{- if eq .Values.database.type "sqlite3" }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "pdns-auth.fullname" . }}
+        {{- end }}
+{{- end }} 
