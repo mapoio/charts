@@ -1,23 +1,23 @@
-PowerDNS Authoritative Server 已成功部署！
+PowerDNS Authoritative Server has been successfully deployed!
 
-1. 获取 PowerDNS 服务的 IP 地址:
+1. Get the IP address of the PowerDNS service:
 {{- if contains "NodePort" .Values.service.type }}
   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "pdns-auth.fullname" . }})
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo "PowerDNS 服务可通过 $NODE_IP:$NODE_PORT 访问"
+  echo "PowerDNS service is accessible via $NODE_IP:$NODE_PORT"
 {{- else if contains "LoadBalancer" .Values.service.type }}
-  注意: 获取 LoadBalancer IP 可能需要几分钟时间
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available
   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "pdns-auth.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
-  echo "PowerDNS 服务可通过 $SERVICE_IP:{{ .Values.service.port }} 访问"
+  echo "PowerDNS service is accessible via $SERVICE_IP:{{ .Values.service.port }}"
 {{- else if contains "ClusterIP" .Values.service.type }}
   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "pdns-auth.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
   export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
-  echo "PowerDNS 服务可通过端口转发访问:"
+  echo "PowerDNS service can be accessed via port-forwarding:"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8053:$CONTAINER_PORT
-  echo "现在可通过 127.0.0.1:8053 访问 PowerDNS"
+  echo "PowerDNS is now accessible via 127.0.0.1:8053"
 {{- end }}
 
-2. 访问 PowerDNS API:
+2. Access PowerDNS API:
 {{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
   {{- range .paths }}
@@ -27,11 +27,11 @@ PowerDNS Authoritative Server 已成功部署！
 {{- else }}
   export API_POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "pdns-auth.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
   kubectl --namespace {{ .Release.Namespace }} port-forward $API_POD_NAME 8081:8081
-  echo "现在可通过 http://127.0.0.1:8081/api 访问 PowerDNS API"
+  echo "PowerDNS API is now accessible via http://127.0.0.1:8081/api"
 {{- end }}
 
-3. 使用 dig 测试 DNS 服务:
+3. Test the DNS service using dig:
    dig @127.0.0.1 -p 8053 example.com
 
-注意: API 密钥设置为 {{ .Values.config.api-key | default "changeme" }}
-请确保在生产环境中修改此密钥。 
+Note: The API key is set to {{ .Values.config.api-key | default "changeme" }}
+Please make sure to change this key in production environments. 
