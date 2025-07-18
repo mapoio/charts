@@ -33,5 +33,5 @@ PowerDNS Authoritative Server has been successfully deployed!
 3. Test the DNS service using dig:
    dig @127.0.0.1 -p 8053 example.com
 
-Note: The API key is set to {{ .Values.config.api-key | default "changeme" }}
+Note: The API key is set to {{ (index .Values.config "api-key") | default "changeme" }}
 Please make sure to change this key in production environments. 

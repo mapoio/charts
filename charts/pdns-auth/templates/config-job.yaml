@@ -1,0 +1,125 @@
+{{- if .Values.configJob.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pdns-auth.fullname" . }}-config
+  labels:
+    {{- include "pdns-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "pdns-auth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: config
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pdns-auth.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: config-generator
+          image: "{{ .Values.configJob.image.repository }}:{{ .Values.configJob.image.tag }}"
+          imagePullPolicy: {{ .Values.configJob.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              
+              # Generate pdns.conf
+              cat > /tmp/pdns.conf << 'EOF'
+              {{- range $key, $value := .Values.config }}
+              {{ $key | replace "-" "-" }} = ${PDNS_{{ $key | upper | replace "-" "_" }}}
+              {{- end }}
+              launch = g{{ .Values.database.type }}
+              {{- if eq .Values.database.type "mysql" }}
+              gmysql-host = ${PDNS_gmysql_host}
+              gmysql-port = ${PDNS_gmysql_port}
+              gmysql-user = ${PDNS_gmysql_user}
+              gmysql-password = ${PDNS_gmysql_password}
+              gmysql-dbname = ${PDNS_gmysql_dbname}
+              {{- else if eq .Values.database.type "pgsql" }}
+              gpgsql-host = ${PDNS_gpgsql_host}
+              gpgsql-port = ${PDNS_gpgsql_port}
+              gpgsql-user = ${PDNS_gpgsql_user}
+              gpgsql-password = ${PDNS_gpgsql_password}
+              gpgsql-dbname = ${PDNS_gpgsql_dbname}
+              {{- else if eq .Values.database.type "sqlite3" }}
+              gsqlite3-database = ${PDNS_gsqlite3_database}
+              {{- end }}
+              EOF
+              
+              # Replace variables in the config file
+              envsubst < /tmp/pdns.conf > /shared/pdns.conf
+              echo "Configuration file generated with variables replaced"
+              
+              # Update ConfigMap using kubectl
+              echo "Updating ConfigMap..."
+              kubectl create configmap {{ include "pdns-auth.fullname" . }}-pdns-config \
+                --from-file=pdns.conf=/shared/pdns.conf \
+                --dry-run=client -o yaml | kubectl replace -f -
+              
+              echo "ConfigMap updated successfully"
+          volumeMounts:
+            - name: shared-config
+              mountPath: /shared
+          env:
+            {{- range $key, $value := .Values.config }}
+            - name: PDNS_{{ $key | upper | replace "-" "_" }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if eq .Values.database.type "mysql" }}
+            - name: PDNS_gmysql_host
+              value: {{ .Values.database.mysql.host | quote }}
+            - name: PDNS_gmysql_port
+              value: {{ .Values.database.mysql.port | quote }}
+            - name: PDNS_gmysql_user
+              value: {{ .Values.database.mysql.user | quote }}
+            - name: PDNS_gmysql_password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gmysql_password
+            - name: PDNS_gmysql_dbname
+              value: {{ .Values.database.mysql.database | quote }}
+            {{- else if eq .Values.database.type "pgsql" }}
+            - name: PDNS_gpgsql_host
+              value: {{ .Values.database.pgsql.host | quote }}
+            - name: PDNS_gpgsql_port
+              value: {{ .Values.database.pgsql.port | quote }}
+            - name: PDNS_gpgsql_user
+              value: {{ .Values.database.pgsql.user | quote }}
+            - name: PDNS_gpgsql_password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gpgsql_password
+            - name: PDNS_gpgsql_dbname
+              value: {{ .Values.database.pgsql.database | quote }}
+            {{- else if eq .Values.database.type "sqlite3" }}
+            - name: PDNS_gsqlite3_database
+              value: {{ .Values.database.sqlite3.database | quote }}
+            {{- end }}
+      volumes:
+        - name: shared-config
+          emptyDir: {}
+{{- end }} 

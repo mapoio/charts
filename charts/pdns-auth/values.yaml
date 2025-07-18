@@ -7,12 +7,26 @@ image:
 ## 初始化Job配置
 initJob:
   image:
+    repository: flyway/flyway
+    tag: 9-alpine
+    pullPolicy: IfNotPresent
+
+## 配置生成Job配置
+configJob:
+  enabled: true
+  image:
     repository: bitnami/kubectl
     tag: latest
     pullPolicy: IfNotPresent
 
 ## 副本数量
 replicaCount: 1
+
+## 部署策略配置
+strategy:
+  rollingUpdate:
+    maxSurge: "25%"
+    maxUnavailable: "25%"
 
 ## 资源限制
 resources:
@@ -24,15 +38,14 @@ resources:
     memory: 256Mi
 
 ## 安全上下文
-securityContext:
-  runAsUser: 101
-  runAsGroup: 101
-  fsGroup: 101
-  capabilities:
-    add:
-      - NET_BIND_SERVICE
-    drop:
-      - ALL
+# securityContext:
+#   runAsUser: 101
+#   runAsGroup: 101
+#   capabilities:
+#     add:
+#       - NET_BIND_SERVICE
+#     drop:
+#       - ALL
 
 ## 数据库配置
 database:
@@ -69,7 +82,6 @@ database:
 ## 所有配置都将转换为PDNS_前缀的环境变量
 ## 例如：allow-axfr-ips将变为PDNS_ALLOW_AXFR_IPS
 config:
-  launch: "g${database.type}"
   api: "yes"
   api-key: "changeme"
   webserver: "yes"
@@ -80,9 +92,6 @@ config:
   local-port: "53"
   log-dns-queries: "no"
   loglevel: "3"
-  master: "yes"
-  default-soa-name: "ns1.example.org"
-  default-soa-mail: "hostmaster.example.org"
   allow-axfr-ips: "127.0.0.0/8,::1/128"
   allow-notify-from: "0.0.0.0/0,::/0"
   daemon: "no"

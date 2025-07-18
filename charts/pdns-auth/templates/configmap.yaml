@@ -4,12 +4,10 @@ metadata:
   name: {{ include "pdns-auth.fullname" . }}-config
   labels:
     {{- include "pdns-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
 data:
-  pdns.conf.tpl: |-
-    {{ "{{" }} range $key, $value := match "PDNS_" -{{ "}}" }}
-    {{ "{{" }}- $key | trimPrefix "PDNS_" | replace "_" "-" {{ "}}" }} = {{ "{{" }} $value {{ "}}" }}
-    {{ "{{" }} end -{{ "}}" }}
-  
   mysql-schema.sql: |-
     CREATE TABLE domains (
       id                    INT AUTO_INCREMENT,

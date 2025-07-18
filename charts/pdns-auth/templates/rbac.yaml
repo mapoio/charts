@@ -1,0 +1,35 @@
+{{- if .Values.serviceAccount.create -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "pdns-auth.fullname" . }}-config-updater
+  labels:
+    {{- include "pdns-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-6"
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "patch", "update", "create"]
+    resourceNames: ["{{ include "pdns-auth.fullname" . }}-pdns-config"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "pdns-auth.fullname" . }}-config-updater
+  labels:
+    {{- include "pdns-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-6"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "pdns-auth.fullname" . }}-config-updater
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "pdns-auth.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }} 

@@ -36,7 +36,7 @@ The following charts are available in this repository:
 
 | Chart Name | Description | Chart Version | App Version |
 |------------|-------------|---------------|------------|
-| pdns-auth | PowerDNS Authoritative Server | 0.1.0 | 4.9.0 |
+| pdns-auth | PowerDNS Authoritative Server | 0.3.0 | 4.9.7 |
 
 For detailed information about each chart, refer to its README.md file in the `charts/[CHART_NAME]` directory.
 

@@ -6,6 +6,9 @@ This Helm chart deploys PowerDNS Authoritative Server on a Kubernetes cluster.
 
 - Supports multiple database backends: MySQL, PostgreSQL, SQLite3
 - Automatic database initialization through init jobs
+- Dynamic configuration generation with variable substitution
+- Rolling update deployment strategy
+- Health checks with API authentication
 - Configurable through values.yaml with environment variable mapping
 - Includes all necessary Kubernetes resources (Services, ServiceAccounts, ConfigMaps, etc.)
 - Security-focused configuration
@@ -20,7 +23,62 @@ This Helm chart deploys PowerDNS Authoritative Server on a Kubernetes cluster.
 ## Installing the Chart
 
 ```bash
-helm install pdns-auth my-helm-charts/pdns-auth
+# Basic installation
+helm install pdns-auth ./charts/pdns-auth --namespace pdns --create-namespace
+
+# With custom values
+helm install pdns-auth ./charts/pdns-auth \
+  --namespace pdns \
+  --create-namespace \
+  --set database.type=mysql \
+  --set database.mysql.host=my-mysql-server \
+  --set config.api-key=my-secret-key
+```
+
+## Usage Examples
+
+### MySQL Database Setup
+
+```yaml
+# values-mysql.yaml
+database:
+  type: mysql
+  mysql:
+    host: mysql-server
+    port: 3306
+    user: powerdns
+    password: mypassword
+    database: powerdns
+
+config:
+  launch: "gmysql"
+  api: "yes"
+  api-key: "your-secret-api-key"
+  webserver: "yes"
+  webserver-address: "0.0.0.0"
+  webserver-port: "8081"
+```
+
+### PostgreSQL Database Setup
+
+```yaml
+# values-postgres.yaml
+database:
+  type: pgsql
+  pgsql:
+    host: postgres-server
+    port: 5432
+    user: powerdns
+    password: mypassword
+    database: powerdns
+
+config:
+  launch: "gpgsql"
+  api: "yes"
+  api-key: "your-secret-api-key"
+  webserver: "yes"
+  webserver-address: "0.0.0.0"
+  webserver-port: "8081"
 ```
 
 ## Configuration
@@ -69,6 +127,28 @@ Refer to the [PowerDNS settings documentation](https://doc.powerdns.com/authorit
 | `persistence.storageClass` | Storage class for PVC | `""` |
 | `persistence.accessMode` | Access mode for PVC | `ReadWriteOnce` |
 | `persistence.size` | Size of PVC | `1Gi` |
+
+### Deployment Strategy
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `strategy.rollingUpdate.maxSurge` | Maximum number of pods that can be created above desired replicas | `25%` |
+| `strategy.rollingUpdate.maxUnavailable` | Maximum number of pods that can be unavailable during update | `25%` |
+
+### Health Check Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `livenessProbe.enabled` | Enable liveness probe | `true` |
+| `livenessProbe.initialDelaySeconds` | Initial delay before first probe | `30` |
+| `livenessProbe.periodSeconds` | How often to perform the probe | `10` |
+| `livenessProbe.timeoutSeconds` | When the probe times out | `5` |
+| `livenessProbe.failureThreshold` | Minimum consecutive failures for the probe to be considered failed | `3` |
+| `readinessProbe.enabled` | Enable readiness probe | `true` |
+| `readinessProbe.initialDelaySeconds` | Initial delay before first probe | `5` |
+| `readinessProbe.periodSeconds` | How often to perform the probe | `10` |
+| `readinessProbe.timeoutSeconds` | When the probe times out | `5` |
+| `readinessProbe.failureThreshold` | Minimum consecutive failures for the probe to be considered failed | `3` |
 
 ### Network Configuration
 

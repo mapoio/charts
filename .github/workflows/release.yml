@@ -70,6 +70,7 @@ jobs:
       - name: Deploy index.html to gh-pages
         run: |
           # Save the generated index.html to a known location
+          current_tag=${GITHUB_REF#refs/tags/}
           git clean -fdx
           git fetch origin gh-pages || git checkout --orphan gh-pages
           git checkout gh-pages || git checkout --orphan gh-pages
