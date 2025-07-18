@@ -3,6 +3,23 @@ entries:
   pdns-auth:
   - apiVersion: v2
     appVersion: 4.9.7
+    created: "2025-07-18T09:53:45.518415472Z"
+    description: PowerDNS Authoritative Server Helm Chart
+    digest: f81bab6d3b683097cab7f2d87ebbe6dffd7a8309ad05007ef38dd11811e8fda8
+    keywords:
+    - dns
+    - powerdns
+    - authoritative
+    - pdns
+    maintainers:
+    - name: PowerDNS
+    name: pdns-auth
+    type: application
+    urls:
+    - pdns-auth-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
+    appVersion: 4.9.7
     created: "2025-07-17T07:13:28.605094751Z"
     description: PowerDNS Authoritative Server Helm Chart
     digest: 1d3f7d50b86703c4b20fe2375a81f3af502c62a3e9ed335027528565a80f383b
@@ -18,4 +35,4 @@ entries:
     urls:
     - pdns-auth-0.2.0.tgz
     version: 0.2.0
-generated: "2025-07-17T07:13:28.605123364Z"
+generated: "2025-07-18T09:53:45.518449275Z"
