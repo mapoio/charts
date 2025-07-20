@@ -64,11 +64,6 @@ spec:
               {{- if eq .Values.database.type "mysql" }}
               echo "Initializing MySQL database with Flyway..."
               
-              # Set Flyway environment variables
-              export FLYWAY_URL="jdbc:mysql://{{ .Values.database.mysql.host }}:{{ .Values.database.mysql.port }}/{{ .Values.database.mysql.database }}"
-              export FLYWAY_USER="{{ .Values.database.mysql.user }}"
-              export FLYWAY_PASSWORD="{{ .Values.database.mysql.password }}"
-              
               # Wait for MySQL to be ready
               echo "Waiting for MySQL to be ready..."
               until flyway info -url="$FLYWAY_URL" -user="$FLYWAY_USER" -password="$FLYWAY_PASSWORD" >/dev/null 2>&1; do
@@ -85,11 +80,6 @@ spec:
               fi
               {{- else if eq .Values.database.type "pgsql" }}
               echo "Initializing PostgreSQL database with Flyway..."
-              
-              # Set Flyway environment variables
-              export FLYWAY_URL="jdbc:postgresql://{{ .Values.database.pgsql.host }}:{{ .Values.database.pgsql.port }}/{{ .Values.database.pgsql.database }}"
-              export FLYWAY_USER="{{ .Values.database.pgsql.user }}"
-              export FLYWAY_PASSWORD="{{ .Values.database.pgsql.password }}"
               
               # Wait for PostgreSQL to be ready
               echo "Waiting for PostgreSQL to be ready..."
@@ -145,6 +135,15 @@ spec:
             {{- end }}
           env:
             {{- if eq .Values.database.type "mysql" }}
+            - name: FLYWAY_URL
+              value: "jdbc:mysql://{{ .Values.database.mysql.host }}:{{ .Values.database.mysql.port }}/{{ .Values.database.mysql.database }}"
+            - name: FLYWAY_USER
+              value: {{ .Values.database.mysql.user | quote }}
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gmysql_password
             - name: PDNS_gmysql_host
               value: {{ .Values.database.mysql.host | quote }}
             - name: PDNS_gmysql_port
@@ -159,6 +158,15 @@ spec:
             - name: PDNS_gmysql_dbname
               value: {{ .Values.database.mysql.database | quote }}
             {{- else if eq .Values.database.type "pgsql" }}
+            - name: FLYWAY_URL
+              value: "jdbc:postgresql://{{ .Values.database.pgsql.host }}:{{ .Values.database.pgsql.port }}/{{ .Values.database.pgsql.database }}"
+            - name: FLYWAY_USER
+              value: {{ .Values.database.pgsql.user | quote }}
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pdns-auth.fullname" . }}
+                  key: PDNS_gpgsql_password
             - name: PDNS_gpgsql_host
               value: {{ .Values.database.pgsql.host | quote }}
             - name: PDNS_gpgsql_port
