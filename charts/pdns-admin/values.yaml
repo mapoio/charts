@@ -1,0 +1,255 @@
+## PowerDNS Admin Configuration
+image:
+  repository: powerdnsadmin/pda-legacy
+  tag: latest
+  pullPolicy: IfNotPresent
+
+## Number of replicas
+replicaCount: 1
+
+## Deployment strategy configuration
+strategy:
+  rollingUpdate:
+    maxSurge: "25%"
+    maxUnavailable: "25%"
+
+## Resource limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+## Security context
+securityContext: {}
+podSecurityContext: {}
+
+## Database configuration
+database:
+  ## Database type: mysql, postgres, sqlite
+  type: mysql
+  
+  ## MySQL configuration
+  mysql:
+    host: mysql
+    port: 3306
+    user: pdnsadmin
+    password: pdnsadmin
+    database: pdnsadmin
+    
+  ## PostgreSQL configuration
+  postgres:
+    host: postgresql
+    port: 5432
+    user: pdnsadmin
+    password: pdnsadmin
+    database: pdnsadmin
+    
+  ## SQLite configuration
+  sqlite:
+    database: /data/pdnsadmin.db
+
+## PowerDNS API configuration
+pdns:
+  proto: http
+  host: pdns-auth
+  port: 8081
+  api_key: changeme
+  version: "4.7.0"
+
+## Application configuration
+config:
+  # A long, random string for Flask secret key
+  secret_key: "changeme"
+  # Bind address for the application
+  bind_address: "0.0.0.0"
+  # Application port
+  port: 8000
+  # Application settings
+  login_title: "PowerDNS Admin"
+  # Log settings
+  log_level: "INFO"
+  log_file: "pdnsadmin.log"
+  # Session timeout in minutes
+  session_timeout: 30
+  # Enable offline mode (no external resources)
+  offline_mode: false
+  # SALT for password hashing
+  salt: "changeme"
+
+## Gunicorn configuration
+gunicorn:
+  timeout: 120
+  workers: 4
+  loglevel: "info"
+
+## Authentication configuration
+auth:
+  ## Local database authentication
+  local_db_enabled: true
+  
+  ## LDAP authentication
+  ldap:
+    enabled: false
+    type: "ldap"
+    uri: "ldap://ldap.example.com"
+    base_dn: "dc=example,dc=com"
+    admin_username: ""
+    admin_password: ""
+    filter_basic: ""
+    filter_username: ""
+    sg_enabled: false
+    admin_group: ""
+    operator_group: ""
+    user_group: ""
+    domain: ""
+  
+  ## OAuth configuration
+  oauth:
+    ## Google OAuth
+    google:
+      enabled: false
+      client_id: ""
+      client_secret: ""
+      token_url: "https://oauth2.googleapis.com/token"
+      scope: "openid email profile"
+      authorize_url: "https://accounts.google.com/o/oauth2/auth"
+      base_url: "https://www.googleapis.com/oauth2/v3/"
+    
+    ## GitHub OAuth
+    github:
+      enabled: false
+      key: ""
+      secret: ""
+      scope: "email,profile"
+      api_url: "https://api.github.com/"
+      token_url: "https://github.com/login/oauth/access_token"
+      authorize_url: "https://github.com/login/oauth/authorize"
+    
+    ## Azure OAuth
+    azure:
+      enabled: false
+      key: ""
+      secret: ""
+      scope: "email,profile"
+      api_url: ""
+      token_url: ""
+      authorize_url: ""
+    
+    ## Generic OpenID Connect
+    oidc:
+      enabled: false
+      key: ""
+      secret: ""
+      scope: "email,profile"
+      api_url: ""
+      token_url: ""
+      authorize_url: ""
+  
+  ## SAML authentication
+  saml:
+    enabled: false
+    debug: false
+    path: ""
+    metadata_url: ""
+    metadata_cache_lifetime: 1
+    idp_sso_binding: ""
+    idp_entity_id: ""
+    nameid_format: ""
+    attribute_email: ""
+    attribute_givenname: ""
+    attribute_surname: ""
+    attribute_name: ""
+    attribute_username: ""
+    attribute_admin: ""
+    attribute_group: ""
+    group_admin_name: ""
+    group_to_account_mapping: ""
+    attribute_account: ""
+    sp_entity_id: ""
+    sp_contact_name: ""
+    sp_contact_mail: ""
+    sign_request: false
+    want_message_signed: false
+    logout: false
+    logout_url: ""
+
+## Default admin user (only created for new installations)
+admin:
+  enabled: false
+  username: "admin"
+  password: "changeme"
+  firstname: "PowerDNS"
+  lastname: "Admin"
+  email: "admin@example.com"
+
+## Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9191
+  annotations: {}
+  loadBalancerIP: ""
+  externalTrafficPolicy: ""
+
+## Persistent volume configuration for SQLite database
+## Only used when database.type is set to "sqlite"
+persistence:
+  ## Persistence is automatically enabled when using SQLite
+  ## This value is ignored when database.type is "sqlite"
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+## Health check configuration
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+## Pod annotations
+podAnnotations: {}
+
+## Node selector
+nodeSelector: {}
+
+## Tolerations
+tolerations: []
+
+## Affinity
+affinity: {}
+
+## ServiceAccount configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+## Network policy
+networkPolicy:
+  enabled: false
+
+## Ingress configuration
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: pdns-admin.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: [] 

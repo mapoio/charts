@@ -1,0 +1,13 @@
+apiVersion: v2
+name: pdns-admin
+description: PowerDNS Admin Web Interface Helm Chart
+type: application
+version: 0.1.0
+appVersion: "0.4.2"
+maintainers:
+  - name: PowerDNS
+keywords:
+  - dns
+  - powerdns
+  - admin
+  - pdns-admin 

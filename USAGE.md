@@ -28,8 +28,6 @@ helm repo add my-helm-charts https://mapoio.github.io/charts
 helm repo update
 ```
 
-Replace `[GITHUB_USERNAME]` and `[REPO_NAME]` with the appropriate values.
-
 ## Available Charts
 
 The following charts are available in this repository:
@@ -37,6 +35,7 @@ The following charts are available in this repository:
 | Chart Name | Description | Chart Version | App Version |
 |------------|-------------|---------------|------------|
 | pdns-auth | PowerDNS Authoritative Server | 0.3.0 | 4.9.7 |
+| pdns-admin | PowerDNS Admin Web Interface | 0.1.0 | 0.4.2 |
 
 For detailed information about each chart, refer to its README.md file in the `charts/[CHART_NAME]` directory.
 
