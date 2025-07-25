@@ -7,6 +7,16 @@ image:
 ## Number of replicas
 replicaCount: 1
 
+## Custom labels to add to all resources
+customLabels: {}
+  # app.kubernetes.io/part-of: dns-system
+  # environment: production
+
+## Custom pod labels
+podLabels: {}
+  # role: dns-admin
+  # version: v1
+
 ## Deployment strategy configuration
 strategy:
   rollingUpdate:
@@ -207,7 +217,7 @@ persistence:
 ## Health check configuration
 livenessProbe:
   enabled: true
-  initialDelaySeconds: 30
+  initialDelaySeconds: 300
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 3
@@ -215,7 +225,7 @@ livenessProbe:
 
 readinessProbe:
   enabled: true
-  initialDelaySeconds: 5
+  initialDelaySeconds: 300
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 3

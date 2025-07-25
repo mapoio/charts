@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "pdns-auth.selectorLabels" . | nindent 8 }}
+        {{- include "pdns-auth.podLabels" . | nindent 8 }}
         app.kubernetes.io/component: init
     spec:
       restartPolicy: OnFailure

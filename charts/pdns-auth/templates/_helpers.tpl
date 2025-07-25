@@ -40,6 +40,9 @@ helm.sh/chart: {{ include "pdns-auth.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- if .Values.customLabels }}
+{{- toYaml .Values.customLabels | nindent 0 }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -48,6 +51,16 @@ Selector labels
 {{- define "pdns-auth.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "pdns-auth.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Pod labels
+*/}}
+{{- define "pdns-auth.podLabels" -}}
+{{ include "pdns-auth.selectorLabels" . }}
+{{- if .Values.podLabels }}
+{{- toYaml .Values.podLabels | nindent 0 }}
+{{- end }}
 {{- end }}
 
 {{/*
