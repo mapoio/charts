@@ -3,6 +3,23 @@ entries:
   pdns-admin:
   - apiVersion: v2
     appVersion: 0.4.2
+    created: "2025-07-25T09:17:32.100001801Z"
+    description: PowerDNS Admin Web Interface Helm Chart
+    digest: b887f23c40d6e401f5d03a0f55635e379394a5b4302dc47a91ca98a85d645746
+    keywords:
+    - dns
+    - powerdns
+    - admin
+    - pdns-admin
+    maintainers:
+    - name: PowerDNS
+    name: pdns-admin
+    type: application
+    urls:
+    - pdns-admin-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
+    appVersion: 0.4.2
     created: "2025-07-20T08:19:20.8041382Z"
     description: PowerDNS Admin Web Interface Helm Chart
     digest: a153d836b6c43b761163cbd8d63184daa7f22059f2f263a5534c81f77527f6d7
@@ -19,6 +36,23 @@ entries:
     - pdns-admin-0.1.0.tgz
     version: 0.1.0
   pdns-auth:
+  - apiVersion: v2
+    appVersion: 4.9.7
+    created: "2025-07-25T09:17:32.302702322Z"
+    description: PowerDNS Authoritative Server Helm Chart
+    digest: 3494b362aaff2c857b0dccb5ca386d147d81f35665b6fe557e31716d8d04d120
+    keywords:
+    - dns
+    - powerdns
+    - authoritative
+    - pdns
+    maintainers:
+    - name: PowerDNS
+    name: pdns-auth
+    type: application
+    urls:
+    - pdns-auth-0.3.2.tgz
+    version: 0.3.2
   - apiVersion: v2
     appVersion: 4.9.7
     created: "2025-07-20T08:53:57.592834709Z"
@@ -70,4 +104,4 @@ entries:
     urls:
     - pdns-auth-0.2.0.tgz
     version: 0.2.0
-generated: "2025-07-20T08:53:57.592858213Z"
+generated: "2025-07-25T09:17:32.30272135Z"
