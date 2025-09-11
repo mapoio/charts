@@ -104,4 +104,29 @@ entries:
     urls:
     - pdns-auth-0.2.0.tgz
     version: 0.2.0
-generated: "2025-07-25T09:17:32.30272135Z"
+  vaultwarden:
+  - annotations:
+      category: Security
+    apiVersion: v2
+    appVersion: 1.30.5
+    created: "2025-09-11T12:00:38.576690607Z"
+    description: A Helm chart for Vaultwarden - an unofficial Bitwarden compatible
+      server
+    digest: b95d74549dc9fd13531038ea91e4678792771353ef3d1da15d7280b93a938d55
+    home: https://github.com/dani-garcia/vaultwarden
+    keywords:
+    - password-manager
+    - bitwarden
+    - security
+    - vault
+    - secrets
+    maintainers:
+    - name: Vaultwarden Community
+    name: vaultwarden
+    sources:
+    - https://github.com/dani-garcia/vaultwarden
+    type: application
+    urls:
+    - vaultwarden-1.0.0.tgz
+    version: 1.0.0
+generated: "2025-09-11T12:00:38.576703521Z"
