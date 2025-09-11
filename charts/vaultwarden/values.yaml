@@ -1,0 +1,347 @@
+## Vaultwarden Configuration
+image:
+  repository: vaultwarden/server
+  tag: "1.30.5-alpine"
+  pullPolicy: IfNotPresent
+
+## Number of replicas
+replicaCount: 1
+
+## Custom labels to add to all resources
+customLabels: {}
+  # app.kubernetes.io/part-of: security-system
+  # environment: production
+
+## Custom pod labels
+podLabels: {}
+  # role: password-manager
+  # version: v1
+
+## Deployment strategy configuration
+strategy:
+  type: Recreate
+
+## Resource limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+## Security context - Non-root user for security
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+podSecurityContext:
+  fsGroup: 65534
+  fsGroupChangePolicy: "OnRootMismatch"
+  seccompProfile:
+    type: RuntimeDefault
+
+## Vaultwarden application configuration
+vaultwarden:
+  # Domain URL (required for proper operation)
+  domain: "https://vault.example.com"
+  
+  # Admin token for administrative access (base64 encoded)
+  # Generate with: echo -n "your-secret-token" | base64
+  adminToken: ""
+  
+  # Database configuration
+  database:
+    # Database type: sqlite, mysql, postgres
+    type: sqlite
+    # SQLite path (for sqlite type)
+    url: "data/db.sqlite3"
+    # External database connection string (for mysql/postgres)
+    # url: "mysql://user:password@host:port/database"
+    # url: "postgresql://user:password@host:port/database"
+    
+    # Database connection pool settings
+    maxConnections: 10
+    
+  # SMTP configuration for email notifications
+  smtp:
+    enabled: false
+    host: ""
+    port: 587
+    security: "starttls"  # options: off, starttls, force_tls
+    username: ""
+    password: ""
+    from: "vaultwarden@example.com"
+    fromName: "Vaultwarden"
+    
+  # Security settings
+  security:
+    # Disable registration of new users
+    signupsAllowed: false
+    # Verify email addresses
+    signupsVerify: true
+    # Allow invitations from organization admins
+    invitationsAllowed: true
+    # Show password hints
+    showPasswordHint: false
+    # Require email verification for password hints
+    passwordHintsAllowed: false
+    # Emergency access
+    emergencyAccessAllowed: true
+    
+  # Feature toggles
+  features:
+    # Enable organization features
+    orgEventsEnabled: true
+    # Enable Send feature (Bitwarden Send)
+    sendsAllowed: true
+    # Enable web vault
+    webVaultEnabled: true
+    
+  # Logging configuration
+  logging:
+    level: "warn"  # options: trace, debug, info, warn, error, off
+    file: ""
+    
+  # Other settings
+  rocketWorkers: 10
+  rocketPort: 8000
+  rocketAddress: "0.0.0.0"
+  
+  # Icon service settings
+  iconService: "internal"  # options: internal, bitwarden, google, duckduckgo
+  disableIconDownload: false
+  
+  # Attachment and file size limits (in bytes)
+  attachmentLimitKb: 10240  # 10MB
+  attachmentLimitOrgKb: 102400  # 100MB
+  
+  # Websocket configuration
+  websocketEnabled: true
+  websocketAddress: "0.0.0.0"
+  websocketPort: 3012
+
+## External database configuration (when not using SQLite)
+externalDatabase:
+  # MySQL configuration
+  mysql:
+    enabled: false
+    host: "mysql"
+    port: 3306
+    database: "vaultwarden"
+    username: "vaultwarden"
+    password: "changeme"
+    existingSecret: ""
+    existingSecretPasswordKey: "password"
+    
+  # PostgreSQL configuration
+  postgres:
+    enabled: false
+    host: "postgresql"
+    port: 5432
+    database: "vaultwarden"
+    username: "vaultwarden"
+    password: "changeme"
+    existingSecret: ""
+    existingSecretPasswordKey: "password"
+
+## Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+  
+  # Websocket service (if enabled)
+  websocket:
+    enabled: true
+    port: 3012
+    targetPort: 3012
+
+## Persistent volume configuration
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  annotations: {}
+  # Backup configuration
+  backup:
+    enabled: false
+    schedule: "0 2 * * *"
+    retention: "7d"
+
+## Health check configuration
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /alive
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /alive
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+## Pod annotations
+podAnnotations: {}
+
+## Node selector
+nodeSelector: {}
+
+## Tolerations
+tolerations: []
+
+## Affinity - Prefer not to run on the same node as other password managers
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - vaultwarden
+          topologyKey: kubernetes.io/hostname
+
+## ServiceAccount configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+## Network policy for enhanced security
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 3012
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS for icon downloads and updates
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow SMTP if enabled
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 587
+        - protocol: TCP
+          port: 465
+        - protocol: TCP
+          port: 25
+
+## Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "16m"
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "10"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: vault.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service:
+            name: vaultwarden
+            port: 80
+        - path: /notifications/hub
+          pathType: Prefix
+          service:
+            name: vaultwarden-ws
+            port: 3012
+  tls:
+    - secretName: vaultwarden-tls
+      hosts:
+        - vault.example.com
+
+## Monitoring configuration
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+## Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+## Horizontal Pod Autoscaler (not recommended for Vaultwarden)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+## Extra environment variables
+extraEnv: []
+  # - name: CUSTOM_VAR
+  #   value: "custom_value"
+
+## Extra volume mounts
+extraVolumeMounts: []
+  # - name: custom-config
+  #   mountPath: /config
+  #   readOnly: true
+
+## Extra volumes
+extraVolumes: []
+  # - name: custom-config
+  #   configMap:
+  #     name: custom-config
+
+## Init containers
+initContainers: []
+  # - name: init-permissions
+  #   image: busybox:1.35
+  #   command: ['sh', '-c', 'chown -R 65534:65534 /data']
+  #   volumeMounts:
+  #     - name: data
+  #       mountPath: /data

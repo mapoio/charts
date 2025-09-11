@@ -1,0 +1,224 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vaultwarden.fullname" . }}
+  labels:
+    {{- include "vaultwarden.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if eq .Values.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge | default "25%" }}
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable | default "25%" }}
+    {{- end }}
+  selector:
+    matchLabels:
+      {{- include "vaultwarden.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "vaultwarden.podLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "vaultwarden.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.initContainers }}
+      initContainers:
+        {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.vaultwarden.rocketPort }}
+              protocol: TCP
+            {{- if .Values.vaultwarden.websocketEnabled }}
+            - name: websocket
+              containerPort: {{ .Values.vaultwarden.websocketPort }}
+              protocol: TCP
+            {{- end }}
+          env:
+            # Basic configuration
+            - name: DOMAIN
+              value: {{ .Values.vaultwarden.domain | quote }}
+            - name: ROCKET_ADDRESS
+              value: {{ .Values.vaultwarden.rocketAddress | quote }}
+            - name: ROCKET_PORT
+              value: {{ .Values.vaultwarden.rocketPort | quote }}
+            - name: ROCKET_WORKERS
+              value: {{ .Values.vaultwarden.rocketWorkers | quote }}
+            
+            # Database configuration
+            {{- if or .Values.externalDatabase.mysql.enabled .Values.externalDatabase.postgres.enabled }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vaultwarden.databaseSecretName" . }}
+                  key: database-url
+            {{- else }}
+            - name: DATABASE_URL
+              value: {{ include "vaultwarden.databaseUrl" . | quote }}
+            {{- end }}
+            - name: DATABASE_MAX_CONNS
+              value: {{ .Values.vaultwarden.database.maxConnections | quote }}
+            
+            # Security settings
+            - name: SIGNUPS_ALLOWED
+              value: {{ .Values.vaultwarden.security.signupsAllowed | quote }}
+            - name: SIGNUPS_VERIFY
+              value: {{ .Values.vaultwarden.security.signupsVerify | quote }}
+            - name: INVITATIONS_ALLOWED
+              value: {{ .Values.vaultwarden.security.invitationsAllowed | quote }}
+            - name: SHOW_PASSWORD_HINT
+              value: {{ .Values.vaultwarden.security.showPasswordHint | quote }}
+            - name: PASSWORD_HINTS_ALLOWED
+              value: {{ .Values.vaultwarden.security.passwordHintsAllowed | quote }}
+            - name: EMERGENCY_ACCESS_ALLOWED
+              value: {{ .Values.vaultwarden.security.emergencyAccessAllowed | quote }}
+            
+            # Feature settings
+            - name: ORG_EVENTS_ENABLED
+              value: {{ .Values.vaultwarden.features.orgEventsEnabled | quote }}
+            - name: SENDS_ALLOWED
+              value: {{ .Values.vaultwarden.features.sendsAllowed | quote }}
+            - name: WEB_VAULT_ENABLED
+              value: {{ .Values.vaultwarden.features.webVaultEnabled | quote }}
+            
+            # Logging
+            - name: LOG_LEVEL
+              value: {{ .Values.vaultwarden.logging.level | quote }}
+            {{- if .Values.vaultwarden.logging.file }}
+            - name: LOG_FILE
+              value: {{ .Values.vaultwarden.logging.file | quote }}
+            {{- end }}
+            
+            # Icon service
+            - name: ICON_SERVICE
+              value: {{ .Values.vaultwarden.iconService | quote }}
+            - name: DISABLE_ICON_DOWNLOAD
+              value: {{ .Values.vaultwarden.disableIconDownload | quote }}
+            
+            # File size limits
+            - name: ATTACHMENT_LIMIT_KB
+              value: {{ .Values.vaultwarden.attachmentLimitKb | quote }}
+            - name: ATTACHMENT_LIMIT_ORG_KB
+              value: {{ .Values.vaultwarden.attachmentLimitOrgKb | quote }}
+            
+            # Websocket configuration
+            {{- if .Values.vaultwarden.websocketEnabled }}
+            - name: WEBSOCKET_ENABLED
+              value: "true"
+            - name: WEBSOCKET_ADDRESS
+              value: {{ .Values.vaultwarden.websocketAddress | quote }}
+            - name: WEBSOCKET_PORT
+              value: {{ .Values.vaultwarden.websocketPort | quote }}
+            {{- else }}
+            - name: WEBSOCKET_ENABLED
+              value: "false"
+            {{- end }}
+            
+            # Admin token
+            {{- if .Values.vaultwarden.adminToken }}
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vaultwarden.adminTokenSecretName" . }}
+                  key: admin-token
+            {{- end }}
+            
+            # SMTP configuration
+            {{- if .Values.vaultwarden.smtp.enabled }}
+            - name: SMTP_HOST
+              value: {{ .Values.vaultwarden.smtp.host | quote }}
+            - name: SMTP_PORT
+              value: {{ .Values.vaultwarden.smtp.port | quote }}
+            - name: SMTP_SECURITY
+              value: {{ .Values.vaultwarden.smtp.security | quote }}
+            - name: SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vaultwarden.smtpSecretName" . }}
+                  key: username
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vaultwarden.smtpSecretName" . }}
+                  key: password
+            - name: SMTP_FROM
+              value: {{ .Values.vaultwarden.smtp.from | quote }}
+            - name: SMTP_FROM_NAME
+              value: {{ .Values.vaultwarden.smtp.fromName | quote }}
+            {{- end }}
+            
+            # Extra environment variables
+            {{- if .Values.extraEnv }}
+            {{- toYaml .Values.extraEnv | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /data
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.extraVolumeMounts }}
+            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.httpGet.path }}
+              port: {{ .Values.livenessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.httpGet.path }}
+              port: {{ .Values.readinessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "vaultwarden.fullname" . }}-data
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.extraVolumes }}
+        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}

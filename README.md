@@ -5,6 +5,8 @@ This repository contains a collection of Helm charts for various applications. E
 ## Available Charts
 
 - [PowerDNS Authoritative Server](./charts/pdns-auth/README.md) - A Helm chart for PowerDNS Authoritative Server
+- [PowerDNS Admin Web Interface](./charts/pdns-admin/README.md) - A Helm chart for PowerDNS Admin Web Interface  
+- [Vaultwarden](./charts/vaultwarden/README.md) - A production-ready Helm chart for Vaultwarden (Bitwarden compatible password manager)
 
 ## Usage
 
@@ -29,6 +31,7 @@ For example:
 
 ```bash
 helm install pdns-auth my-helm-charts/pdns-auth
+helm install vaultwarden my-helm-charts/vaultwarden
 ```
 
 ## Development

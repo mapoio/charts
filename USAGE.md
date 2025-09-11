@@ -35,7 +35,8 @@ The following charts are available in this repository:
 | Chart Name | Description | Chart Version | App Version |
 |------------|-------------|---------------|------------|
 | pdns-auth | PowerDNS Authoritative Server | 0.3.0 | 4.9.7 |
-| pdns-admin | PowerDNS Admin Web Interface | 0.1.0 | 0.4.2 |
+| pdns-admin | PowerDNS Admin Web Interface | 0.1.1 | 0.4.2 |
+| vaultwarden | Vaultwarden (Bitwarden Compatible Password Manager) | 1.0.0 | 1.30.5 |
 
 For detailed information about each chart, refer to its README.md file in the `charts/[CHART_NAME]` directory.
 
@@ -53,6 +54,7 @@ For example:
 
 ```bash
 helm install pdns-auth my-helm-charts/pdns-auth
+helm install vaultwarden my-helm-charts/vaultwarden
 ```
 
 ### Installation with Custom Values
@@ -60,10 +62,18 @@ helm install pdns-auth my-helm-charts/pdns-auth
 You can customize the installation by specifying values with `--set` flags:
 
 ```bash
+# PowerDNS Auth example
 helm install pdns-auth my-helm-charts/pdns-auth \
   --set database.type=mysql \
   --set database.mysql.host=my-mysql-server \
   --set database.mysql.password=my-secure-password
+
+# Vaultwarden example  
+helm install vaultwarden my-helm-charts/vaultwarden \
+  --set vaultwarden.domain="https://vault.example.com" \
+  --set vaultwarden.adminToken="$(echo -n 'your-admin-token' | base64)" \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host="vault.example.com"
 ```
 
 ### Installation with Values File
@@ -71,8 +81,8 @@ helm install pdns-auth my-helm-charts/pdns-auth \
 For more complex configurations, create a values file and use it during installation:
 
 ```bash
-# Create a values file
-cat > my-values.yaml << EOF
+# PowerDNS Auth values file
+cat > pdns-values.yaml << EOF
 database:
   type: mysql
   mysql:
@@ -83,8 +93,28 @@ config:
   webserver-allow-from: 10.0.0.0/8
 EOF
 
-# Install with values file
-helm install pdns-auth my-helm-charts/pdns-auth -f my-values.yaml
+# Vaultwarden values file
+cat > vaultwarden-values.yaml << EOF
+vaultwarden:
+  domain: "https://vault.example.com"
+  adminToken: "$(echo -n 'your-admin-token' | base64)"
+  security:
+    signupsAllowed: false
+ingress:
+  enabled: true
+  hosts:
+    - host: vault.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+persistence:
+  enabled: true
+  size: 10Gi
+EOF
+
+# Install with values files
+helm install pdns-auth my-helm-charts/pdns-auth -f pdns-values.yaml
+helm install vaultwarden my-helm-charts/vaultwarden -f vaultwarden-values.yaml
 ```
 
 ## Customizing Chart Values
@@ -99,6 +129,7 @@ For example:
 
 ```bash
 helm show values my-helm-charts/pdns-auth
+helm show values my-helm-charts/vaultwarden
 ```
 
 ## Upgrading Charts

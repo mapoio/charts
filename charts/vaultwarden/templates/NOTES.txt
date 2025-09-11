@@ -1,0 +1,93 @@
+1. 获取 Vaultwarden 访问 URL:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "vaultwarden.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     注意：可能需要几分钟时间来获取 LoadBalancer IP。监视状态：
+           kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "vaultwarden.fullname" . }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "vaultwarden.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "vaultwarden.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "访问 http://127.0.0.1:8080 来使用您的应用程序"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+2. 管理界面访问:
+{{- if .Values.vaultwarden.adminToken }}
+   管理界面 URL: {{ .Values.vaultwarden.domain }}/admin
+   使用您配置的管理员令牌登录。
+{{- else }}
+   ⚠️  警告：未设置管理员令牌。请设置 vaultwarden.adminToken 以启用管理功能。
+{{- end }}
+
+3. 用户注册:
+{{- if .Values.vaultwarden.security.signupsAllowed }}
+   ✅ 用户注册已启用 - 新用户可以直接注册账户
+{{- else }}
+   🔒 用户注册已禁用 - 只能通过管理员邀请或组织邀请创建账户
+{{- end }}
+
+4. 数据库信息:
+{{- if eq .Values.vaultwarden.database.type "sqlite" }}
+   📁 使用 SQLite 数据库，数据存储路径: {{ .Values.vaultwarden.database.url }}
+{{- else if .Values.externalDatabase.mysql.enabled }}
+   🗄️  使用外部 MySQL 数据库: {{ .Values.externalDatabase.mysql.host }}:{{ .Values.externalDatabase.mysql.port }}/{{ .Values.externalDatabase.mysql.database }}
+{{- else if .Values.externalDatabase.postgres.enabled }}
+   🗄️  使用外部 PostgreSQL 数据库: {{ .Values.externalDatabase.postgres.host }}:{{ .Values.externalDatabase.postgres.port }}/{{ .Values.externalDatabase.postgres.database }}
+{{- end }}
+
+5. 持久化存储:
+{{- if .Values.persistence.enabled }}
+   💾 持久化存储已启用
+   - 存储类: {{ .Values.persistence.storageClass | default "默认" }}
+   - 存储大小: {{ .Values.persistence.size }}
+   - 访问模式: {{ .Values.persistence.accessMode }}
+{{- else }}
+   ⚠️  警告：持久化存储未启用。重启 Pod 将导致数据丢失！
+{{- end }}
+
+6. 网络安全:
+{{- if .Values.networkPolicy.enabled }}
+   🛡️  网络策略已启用 - 网络访问受到限制
+{{- else }}
+   ⚠️  网络策略未启用 - 考虑启用以增强安全性
+{{- end }}
+
+7. WebSocket 支持:
+{{- if .Values.vaultwarden.websocketEnabled }}
+   🔄 WebSocket 已启用 - 支持实时同步功能
+   WebSocket 端口: {{ .Values.vaultwarden.websocketPort }}
+{{- else }}
+   ⚠️  WebSocket 已禁用 - 某些实时功能可能不可用
+{{- end }}
+
+8. SMTP 配置:
+{{- if .Values.vaultwarden.smtp.enabled }}
+   📧 SMTP 已配置 - 邮件通知功能可用
+   SMTP 服务器: {{ .Values.vaultwarden.smtp.host }}:{{ .Values.vaultwarden.smtp.port }}
+{{- else }}
+   ℹ️  SMTP 未配置 - 邮件通知功能不可用
+{{- end }}
+
+9. 安全建议:
+   🔐 定期备份您的数据
+   🔑 使用强管理员令牌并定期轮换
+   🌐 在生产环境中使用 HTTPS
+   👥 考虑禁用公开注册
+   📊 监控应用程序日志以发现异常活动
+
+10. 故障排除:
+    查看日志: kubectl logs -f deployment/{{ include "vaultwarden.fullname" . }} -n {{ .Release.Namespace }}
+    查看事件: kubectl get events -n {{ .Release.Namespace }} --sort-by=.metadata.creationTimestamp
+    检查状态: kubectl get all -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}
+
+有关更多配置选项和故障排除，请参阅 Chart 的 README.md。

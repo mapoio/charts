@@ -1,0 +1,19 @@
+apiVersion: v2
+name: vaultwarden
+description: A Helm chart for Vaultwarden - an unofficial Bitwarden compatible server
+type: application
+version: 1.0.0
+appVersion: "1.30.5"
+home: https://github.com/dani-garcia/vaultwarden
+sources:
+  - https://github.com/dani-garcia/vaultwarden
+maintainers:
+  - name: Vaultwarden Community
+keywords:
+  - password-manager
+  - bitwarden
+  - security
+  - vault
+  - secrets
+annotations:
+  category: Security
