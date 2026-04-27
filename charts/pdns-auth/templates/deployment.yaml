@@ -86,12 +86,23 @@ spec:
               mountPath: {{ dir .Values.database.sqlite3.database }}
             {{- end }}
           env:
-            {{- if (index .Values.config "api-key") }}
             - name: PDNS_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "pdns-auth.fullname" . }}
-                  key: PDNS_api_key
+                  name: {{ .Values.auth.existingSecret | default (include "pdns-auth.fullname" .) }}
+                  key: {{ .Values.auth.existingSecretApiKeyKey | default "PDNS_api_key" }}
+            {{- if eq .Values.database.type "mysql" }}
+            - name: PDNS_GMYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.mysql.existingSecret | default (include "pdns-auth.fullname" .) }}
+                  key: {{ .Values.database.mysql.existingSecretPasswordKey | default "PDNS_gmysql_password" }}
+            {{- else if eq .Values.database.type "pgsql" }}
+            - name: PDNS_GPGSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.pgsql.existingSecret | default (include "pdns-auth.fullname" .) }}
+                  key: {{ .Values.database.pgsql.existingSecretPasswordKey | default "PDNS_gpgsql_password" }}
             {{- end }}
       volumes:
         - name: config

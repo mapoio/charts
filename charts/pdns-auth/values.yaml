@@ -11,9 +11,9 @@ initJob:
     tag: 9-alpine
     pullPolicy: IfNotPresent
 
-## 配置生成Job配置
+## 配置生成Job配置（已禁用：pdns.conf 由 Helm 直接渲染，敏感值通过 Secret 注入）
 configJob:
-  enabled: true
+  enabled: false
   image:
     repository: bitnami/kubectl
     tag: latest
@@ -69,7 +69,9 @@ database:
     user: powerdns
     password: powerdns
     database: powerdns
-    
+    existingSecret: ""           # 生产环境：指向已有 Secret 名称，留空则由 chart 创建
+    existingSecretPasswordKey: "PDNS_gmysql_password"
+
   ## PostgreSQL配置
   pgsql:
     host: postgresql
@@ -77,6 +79,8 @@ database:
     user: powerdns
     password: powerdns
     database: powerdns
+    existingSecret: ""           # 生产环境：指向已有 Secret 名称，留空则由 chart 创建
+    existingSecretPasswordKey: "PDNS_gpgsql_password"
     
   ## SQLite3配置
   sqlite3:
@@ -88,12 +92,16 @@ database:
     skipCreate: false
     skipInit: false
 
-## PowerDNS配置
-## 所有配置都将转换为PDNS_前缀的环境变量
-## 例如：allow-axfr-ips将变为PDNS_ALLOW_AXFR_IPS
+## 认证配置（敏感，生产环境使用 existingSecret）
+auth:
+  apiKey: "changeme"                    # 本地开发默认值
+  existingSecret: ""                    # 生产环境：指向已有 Secret，留空则由 chart 创建
+  existingSecretApiKeyKey: "PDNS_api_key"
+
+## PowerDNS配置（不含敏感值，api-key 已移入 auth 块）
+## 所有配置写入 pdns.conf；api-key/db-password 通过 Deployment env 注入
 config:
   api: "yes"
-  api-key: "changeme"
   webserver: "yes"
   webserver-address: "0.0.0.0"
   webserver-allow-from: "0.0.0.0/0,::/0"
